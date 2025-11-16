@@ -1,0 +1,24 @@
+version: '3.8'
+
+services:
+  buildozer:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      # Mount current directory to /app in container
+      - .:/app
+      # Persist buildozer cache between builds
+      - buildozer_cache:/root/.buildozer
+      # Output APK to ./bin directory
+      - ./bin:/app/bin
+    environment:
+      # Optional: increase verbosity for debugging
+      - BUILDOZER_LOG_LEVEL=2
+    # Keep container running for debugging if needed
+    stdin_open: true
+    tty: true
+
+volumes:
+  buildozer_cache:
+    driver: local

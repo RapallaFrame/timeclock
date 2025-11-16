@@ -9,6 +9,9 @@ package.name = timeclock
 # (str) Package domain (needed for android/ios packaging)
 package.domain = org.example
 
+# (str) Application version
+version = 1.0.0
+
 # (source.dir) Source code where the main.py live
 source.dir = .
 
@@ -70,9 +73,6 @@ android.logcat_filters = *:S python:D
 
 # (bool) Copy library instead of making a libpymodules.so
 #android.copy_libs = 1
-
-# (str) The Android arch to build for, choices: armeabi-v7a, arm64-v8a, x86, x86_64
-android.archs = arm64-v8a
 
 # (bool) Enable AndroidX support
 android.enable_androidx = True
