@@ -311,15 +311,56 @@ class TimeClockApp(App):
         return layout
     
     def show_user_selection_screen(self):
-        """Screen to select user"""
-        layout = BoxLayout(orientation='vertical', padding=20, spacing=10)
+        """Screen to select user - Modern purple, black, white theme"""
+        from kivy.graphics import Color, Rectangle
         
-        layout.add_widget(Label(text='Select User', size_hint_y=0.1, 
-                               font_size='20sp', bold=True))
+        # Black background layout
+        layout = BoxLayout(orientation='vertical', padding=20, spacing=15)
         
+        def update_bg(instance, value):
+            layout.canvas.before.clear()
+            with layout.canvas.before:
+                Color(0, 0, 0, 1)  # Black background
+                Rectangle(size=layout.size, pos=layout.pos)
+        
+        layout.bind(size=update_bg, pos=update_bg)
+        update_bg(layout, None)
+        
+        # Header with purple background
+        header_layout = BoxLayout(size_hint_y=0.12, padding=10)
+        
+        def update_header_bg(instance, value):
+            header_layout.canvas.before.clear()
+            with header_layout.canvas.before:
+                Color(0.6, 0.2, 1, 1)  # Bright purple
+                Rectangle(size=header_layout.size, pos=header_layout.pos)
+        
+        header_layout.bind(size=update_header_bg, pos=update_header_bg)
+        update_header_bg(header_layout, None)
+        
+        header_label = Label(
+            text='Select User',
+            size_hint_y=1,
+            font_size='24sp',
+            bold=True,
+            color=(1, 1, 1, 1)  # White text
+        )
+        header_layout.add_widget(header_label)
+        layout.add_widget(header_layout)
+        
+        # User list with purple buttons
         user_list = GridLayout(cols=1, spacing=10, size_hint_y=0.7)
+        
         for username in self.users.keys():
-            btn = Button(text=username, size_hint_y=None, height=50)
+            btn = Button(
+                text=username,
+                size_hint_y=None,
+                height=60,
+                background_color=(0.6, 0.2, 1, 1),  # Purple background
+                color=(1, 1, 1, 1),  # White text
+                font_size='16sp',
+                bold=True
+            )
             btn.bind(on_press=lambda x, u=username: self.select_user(u))
             user_list.add_widget(btn)
         
@@ -327,8 +368,15 @@ class TimeClockApp(App):
         scroll.add_widget(user_list)
         layout.add_widget(scroll)
         
-        # New User Button
-        new_user_btn = Button(text='New User', size_hint_y=0.1)
+        # New User Button - Accent style
+        new_user_btn = Button(
+            text='+ New User',
+            size_hint_y=0.15,
+            background_color=(0.35, 0.1, 0.6, 1),  # Darker purple accent
+            color=(1, 1, 1, 1),  # White text
+            font_size='16sp',
+            bold=True
+        )
         new_user_btn.bind(on_press=self.show_new_user_dialog)
         layout.add_widget(new_user_btn)
         
