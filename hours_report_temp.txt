@@ -1,0 +1,15 @@
+=======================================
+        HOURS WORKED REPORT
+         User: Paul
+    Printed: 2025-11-16 11:46 AM
+=======================================
+
+CURRENT WEEK
+Period: Mon, Nov 10 - Sun, Nov 16
+Hours Worked: 0h 13m
+
+---------------------------------------
+PREVIOUS WEEK
+No previous week data available.
+---------------------------------------
+=======================================
