@@ -348,37 +348,69 @@ class TimeClockApp(App):
         header_layout.add_widget(header_label)
         layout.add_widget(header_layout)
         
-        # User list with purple buttons
-        user_list = GridLayout(cols=1, spacing=10, size_hint_y=0.7)
+        # User list with purple buttons and options
+        user_list = GridLayout(cols=1, spacing=10, size_hint_y=0.65)
         
         for username in self.users.keys():
+            # Container for user button and options
+            user_container = BoxLayout(size_hint_y=None, height=60, spacing=5)
+            
+            # Main user button
             btn = Button(
                 text=username,
-                size_hint_y=None,
-                height=60,
+                size_hint_x=0.6,
                 background_color=(0.6, 0.2, 1, 1),  # Purple background
                 color=(1, 1, 1, 1),  # White text
                 font_size='16sp',
                 bold=True
             )
             btn.bind(on_press=lambda x, u=username: self.select_user(u))
-            user_list.add_widget(btn)
+            user_container.add_widget(btn)
+            
+            # Edit button
+            edit_btn = Button(
+                text='Edit',
+                size_hint_x=0.2,
+                background_color=(0.35, 0.1, 0.6, 1),
+                color=(1, 1, 1, 1),
+                font_size='12sp'
+            )
+            edit_btn.bind(on_press=lambda x, u=username: self.show_edit_user_dialog(u))
+            user_container.add_widget(edit_btn)
+            
+            # Delete button
+            delete_btn = Button(
+                text='Delete',
+                size_hint_x=0.2,
+                background_color=(0.8, 0, 0, 1),  # Red for delete
+                color=(1, 1, 1, 1),
+                font_size='12sp'
+            )
+            delete_btn.bind(on_press=lambda x, u=username: self.show_delete_user_dialog(u))
+            user_container.add_widget(delete_btn)
+            
+            user_list.add_widget(user_container)
         
-        scroll = ScrollView(size_hint=(1, 0.7))
+        scroll = ScrollView(size_hint=(1, 0.65))
         scroll.add_widget(user_list)
         layout.add_widget(scroll)
         
-        # New User Button - Accent style
+        # Bottom buttons
+        bottom_layout = BoxLayout(size_hint_y=0.25, spacing=10, orientation='vertical')
+        
+        # New User Button
         new_user_btn = Button(
             text='+ New User',
-            size_hint_y=0.15,
+            size_hint_y=1,
             background_color=(0.35, 0.1, 0.6, 1),  # Darker purple accent
             color=(1, 1, 1, 1),  # White text
             font_size='16sp',
             bold=True
         )
         new_user_btn.bind(on_press=self.show_new_user_dialog)
-        layout.add_widget(new_user_btn)
+        bottom_layout.add_widget(new_user_btn)
+        
+        layout.add_widget(bottom_layout)
         
         return layout
     
@@ -421,6 +453,184 @@ class TimeClockApp(App):
         content.add_widget(btn_layout)
         
         popup = Popup(title='New User', content=content, size_hint=(0.9, 0.3))
+        popup.open()
+    
+    def show_edit_user_dialog(self, username):
+        """Show dialog to edit username"""
+        content = BoxLayout(orientation='vertical', padding=10, spacing=10)
+        
+        new_name_input = TextInput(
+            hint_text='Enter new username',
+            multiline=False,
+            text=username
+        )
+        content.add_widget(Label(text=f'Edit: {username}', size_hint_y=0.2))
+        content.add_widget(new_name_input)
+        
+        btn_layout = BoxLayout(size_hint_y=0.3, spacing=10)
+        
+        def update_name():
+            new_name = new_name_input.text.strip()
+            if not new_name:
+                self.show_popup('Error', 'Username cannot be empty!')
+                return
+            if new_name in self.users and new_name != username:
+                self.show_popup('Error', 'Username already exists!')
+                return
+            
+            # Update user data
+            self.users[new_name] = self.users.pop(username)
+            self.save_users()
+            self.show_popup('Success', f'Username changed to {new_name}')
+            popup.dismiss()
+            self.root.clear_widgets()
+            self.root.add_widget(self.show_user_selection_screen())
+        
+        btn_layout.add_widget(Button(text='Save', on_press=lambda x: update_name()))
+        btn_layout.add_widget(Button(text='Cancel', on_press=lambda x: popup.dismiss()))
+        content.add_widget(btn_layout)
+        
+        popup = Popup(title='Edit Username', content=content, size_hint=(0.9, 0.35))
+        popup.open()
+    
+    def show_delete_user_dialog(self, username):
+        """Show confirmation dialog to delete user"""
+        content = BoxLayout(orientation='vertical', padding=10, spacing=10)
+        
+        content.add_widget(Label(
+            text=f'Delete user: {username}?\n\nThis will delete all time records.',
+            size_hint_y=0.6
+        ))
+        
+        btn_layout = BoxLayout(size_hint_y=0.4, spacing=10)
+        
+        def delete_user():
+            del self.users[username]
+            self.save_users()
+            
+            # Also delete user's history files if they exist
+            user_history_file = f'timeclock_history_{username}.json'
+            if os.path.exists(user_history_file):
+                os.remove(user_history_file)
+            
+            self.show_popup('Success', f'User {username} deleted')
+            popup.dismiss()
+            self.root.clear_widgets()
+            self.root.add_widget(self.show_user_selection_screen())
+        
+        btn_layout.add_widget(Button(text='Delete', background_color=(0.8, 0, 0, 1), on_press=lambda x: delete_user()))
+        btn_layout.add_widget(Button(text='Cancel', on_press=lambda x: popup.dismiss()))
+        content.add_widget(btn_layout)
+        
+        popup = Popup(title='Delete User', content=content, size_hint=(0.9, 0.35))
+        popup.open()
+    
+    def show_add_delivery_time_dialog(self):
+        """Removed - delivery time feature removed"""
+        pass
+    
+    def show_missed_punch_dialog(self):
+        """Show dialog to add missed punch entry - 24 hour clock"""
+        content = BoxLayout(orientation='vertical', padding=10, spacing=10)
+        
+        # Date input
+        date_input = TextInput(
+            hint_text='Date (YYYY-MM-DD)',
+            multiline=False,
+            text=datetime.datetime.now().strftime('%Y-%m-%d')
+        )
+        content.add_widget(Label(text='Date:', size_hint_y=0.1))
+        content.add_widget(date_input)
+        
+        # Clock in time (24-hour format)
+        clock_in_input = TextInput(
+            hint_text='Clock In Time (00:00-23:59)',
+            multiline=False,
+            text='08:00'
+        )
+        content.add_widget(Label(text='Clock In Time (24hr HH:MM):', size_hint_y=0.1))
+        content.add_widget(clock_in_input)
+        
+        # Clock out time (24-hour format)
+        clock_out_input = TextInput(
+            hint_text='Clock Out Time (00:00-23:59)',
+            multiline=False,
+            text='17:00'
+        )
+        content.add_widget(Label(text='Clock Out Time (24hr HH:MM):', size_hint_y=0.1))
+        content.add_widget(clock_out_input)
+        
+        # Note
+        note_input = TextInput(
+            hint_text='Note (optional)',
+            multiline=True
+        )
+        content.add_widget(Label(text='Note:', size_hint_y=0.1))
+        content.add_widget(note_input)
+        
+        # Buttons
+        btn_layout = BoxLayout(size_hint_y=0.15, spacing=10)
+        
+        def add_missed_punch():
+            try:
+                # Parse inputs
+                date_str = date_input.text.strip()
+                clock_in_str = clock_in_input.text.strip()
+                clock_out_str = clock_out_input.text.strip()
+                note = note_input.text.strip()
+                
+                # Validate date format
+                date_obj = datetime.datetime.strptime(date_str, '%Y-%m-%d').date()
+                
+                # Parse times
+                clock_in_time_parts = clock_in_str.split(':')
+                clock_out_time_parts = clock_out_str.split(':')
+                
+                if len(clock_in_time_parts) != 2 or len(clock_out_time_parts) != 2:
+                    self.show_popup('Error', 'Times must be in HH:MM format')
+                    return
+                
+                # Create datetime objects
+                clock_in_dt = datetime.datetime.combine(
+                    date_obj,
+                    datetime.time(int(clock_in_time_parts[0]), int(clock_in_time_parts[1]))
+                )
+                clock_out_dt = datetime.datetime.combine(
+                    date_obj,
+                    datetime.time(int(clock_out_time_parts[0]), int(clock_out_time_parts[1]))
+                )
+                
+                # Validate times
+                if clock_out_dt <= clock_in_dt:
+                    self.show_popup('Error', 'Clock out time must be after clock in time')
+                    return
+                
+                # Calculate session time
+                session_time = clock_out_dt - clock_in_dt
+                
+                # Add to history
+                self.add_history_entry(clock_in_dt, clock_out_dt, session_time, f"[MISSED] {note}")
+                
+                session_display = self.format_hours_minutes(session_time)
+                self.show_popup(
+                    'Success',
+                    f'Missed punch added!\nDate: {date_str}\nTime: {session_display}'
+                )
+                
+                popup.dismiss()
+                self.root.clear_widgets()
+                self.root.add_widget(self.create_main_screen())
+                
+            except ValueError as e:
+                self.show_popup('Error', f'Invalid input: {str(e)}')
+            except Exception as e:
+                self.show_popup('Error', f'Error: {str(e)}')
+        
+        btn_layout.add_widget(Button(text='Add', on_press=lambda x: add_missed_punch()))
+        btn_layout.add_widget(Button(text='Cancel', on_press=lambda x: popup.dismiss()))
+        content.add_widget(btn_layout)
+        
+        popup = Popup(title='Add Missed Punch', content=content, size_hint=(0.95, 0.7))
         popup.open()
     
     def create_main_screen(self):
@@ -547,6 +757,10 @@ class TimeClockApp(App):
         print_btn = Button(text='Print Hours', size_hint_y=0.12)
         print_btn.bind(on_press=lambda x: self.show_print_screen())
         button_layout.add_widget(print_btn)
+        
+        missed_punch_btn = Button(text='Missed Punch', size_hint_y=0.12)
+        missed_punch_btn.bind(on_press=lambda x: self.show_missed_punch_dialog())
+        button_layout.add_widget(missed_punch_btn)
         
         switch_user_btn = Button(text='Switch User', size_hint_y=0.12)
         switch_user_btn.bind(on_press=lambda x: self.switch_user())
