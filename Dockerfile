@@ -5,7 +5,8 @@ FROM ubuntu:22.04
 ENV DEBIAN_FRONTEND=noninteractive \
     JAVA_HOME=/usr/lib/jvm/java-11-openjdk-amd64 \
     ANDROID_SDK_ROOT=/opt/android-sdk \
-    ANDROID_NDK_ROOT=/opt/android-ndk
+    ANDROID_NDK_ROOT=/opt/android-sdk/ndk/25.1.8937393 \
+    PATH=$PATH:/opt/android-sdk/cmdline-tools/latest/bin
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
@@ -21,20 +22,34 @@ RUN apt-get update && apt-get install -y \
     libssl-dev \
     libffi-dev \
     zlib1g-dev \
+    sudo \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Python dependencies
-RUN pip3 install --upgrade pip
-RUN pip3 install buildozer cython kivy pexpect virtualenv
+# Create non-root user for buildozer
+RUN useradd -m -s /bin/bash buildozer && \
+    usermod -aG sudo buildozer && \
+    echo "buildozer ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
 
-# Download and setup Android SDK
+# Install Python dependencies
+RUN pip3 install --upgrade pip setuptools wheel
+RUN pip3 install buildozer cython pexpect virtualenv
+
+# Set up Android SDK directories
 RUN mkdir -p ${ANDROID_SDK_ROOT} && \
-    cd ${ANDROID_SDK_ROOT} && \
+    chown -R buildozer:buildozer ${ANDROID_SDK_ROOT}
+
+# Download and setup Android SDK (as root, then fix permissions)
+RUN cd ${ANDROID_SDK_ROOT} && \
     wget -q https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip && \
     unzip -q commandlinetools-linux-9477386_latest.zip && \
     rm commandlinetools-linux-9477386_latest.zip && \
     mkdir -p cmdline-tools/latest && \
-    mv cmdline-tools/* cmdline-tools/latest/ 2>/dev/null || true
+    mv cmdline-tools/* cmdline-tools/latest/ 2>/dev/null || true && \
+    chown -R buildozer:buildozer ${ANDROID_SDK_ROOT}
+
+# Switch to non-root user
+USER buildozer
+WORKDIR /home/buildozer
 
 # Accept Android SDK licenses
 RUN yes | ${ANDROID_SDK_ROOT}/cmdline-tools/latest/bin/sdkmanager --licenses 2>/dev/null || true
@@ -46,18 +61,11 @@ RUN ${ANDROID_SDK_ROOT}/cmdline-tools/latest/bin/sdkmanager \
     "ndk;25.1.8937393" \
     2>/dev/null || true
 
-# Setup NDK path
-RUN export ANDROID_NDK_ROOT=/opt/android-sdk/ndk/25.1.8937393 || true
-
 # Create app directory
 WORKDIR /app
 
 # Copy app files
 COPY . /app/
-
-# Set buildozer.spec to use correct paths
-RUN sed -i "s|android.sdk_path =.*|android.sdk_path = ${ANDROID_SDK_ROOT}|g" buildozer.spec && \
-    sed -i "s|android.ndk_path =.*|android.ndk_path = ${ANDROID_NDK_ROOT}|g" buildozer.spec
 
 # Build APK
 CMD ["buildozer", "android", "debug"]
