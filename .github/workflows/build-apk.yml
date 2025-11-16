@@ -5,22 +5,31 @@ on:
     branches: [ main, master ]
   workflow_dispatch:
 
+env:
+  ANDROID_SDK_ROOT: /opt/android-sdk
+  ANDROID_NDK_ROOT: /opt/android-sdk/ndk/25.1.8937393
+
 jobs:
   build:
     runs-on: ubuntu-latest
     
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
     
     - name: Set up Python
       uses: actions/setup-python@v4
       with:
         python-version: '3.11'
     
-    - name: Install dependencies
+    - name: Install system dependencies
       run: |
-        python -m pip install --upgrade pip
-        pip install buildozer cython kivy pexpect virtualenv
+        sudo apt-get update -qq
+        sudo apt-get install -y -qq build-essential python3-dev libffi-dev libssl-dev zlib1g-dev openjdk-11-jdk
+    
+    - name: Install Python packages
+      run: |
+        python -m pip install --upgrade pip setuptools wheel
+        pip install -q buildozer cython pexpect virtualenv
     
     - name: Set up Java
       uses: actions/setup-java@v3
@@ -28,31 +37,44 @@ jobs:
         distribution: 'temurin'
         java-version: '11'
     
-    - name: Install Android SDK
+    - name: Download Android SDK
       run: |
-        mkdir -p /opt/android-sdk
-        cd /opt/android-sdk
+        mkdir -p $ANDROID_SDK_ROOT
+        cd $ANDROID_SDK_ROOT
         wget -q https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip
         unzip -q commandlinetools-linux-9477386_latest.zip
         rm commandlinetools-linux-9477386_latest.zip
         mkdir -p cmdline-tools/latest
         mv cmdline-tools/* cmdline-tools/latest/ 2>/dev/null || true
-        yes | cmdline-tools/latest/bin/sdkmanager --licenses 2>/dev/null || true
-        cmdline-tools/latest/bin/sdkmanager "platforms;android-31" "build-tools;31.0.0" "ndk;25.1.8937393" 2>/dev/null || true
-        export ANDROID_SDK_ROOT=/opt/android-sdk
-        export ANDROID_NDK_ROOT=/opt/android-sdk/ndk/25.1.8937393
     
-    - name: Build APK
+    - name: Accept Android licenses
       run: |
-        export ANDROID_SDK_ROOT=/opt/android-sdk
-        export ANDROID_NDK_ROOT=/opt/android-sdk/ndk/25.1.8937393
+        yes | $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager --licenses
+    
+    - name: Install Android SDK components
+      run: |
+        $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager \
+          "platforms;android-31" \
+          "build-tools;31.0.0" \
+          "ndk;25.1.8937393"
+    
+    - name: Build APK with Buildozer
+      run: |
         export JAVA_HOME=/usr/lib/jvm/temurin-11-jdk-amd64
+        export PATH=$ANDROID_SDK_ROOT/cmdline-tools/latest/bin:$ANDROID_NDK_ROOT/bin:$PATH
         cd ${{ github.workspace }}
-        buildozer android debug
+        buildozer android debug 2>&1 | tee build.log
     
     - name: Upload APK
+      if: success()
       uses: actions/upload-artifact@v4
       with:
         name: timeclock-apk
         path: bin/timeclockapp-1.0.0-debug.apk
-        if-no-files-found: error
+    
+    - name: Upload build log
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: build-log
+        path: build.log
